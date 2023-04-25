@@ -1,0 +1,25 @@
+{
+  "name": "quickbooks",
+  "version": "1.0.0",
+  "description": "Excel reading and populating data",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "keywords": [
+    "quickbooks",
+    "intuit",
+    "netsuite",
+    "nodejs",
+    "jwt",
+    "token"
+  ],
+  "author": "Ankur Prajapati",
+  "license": "ISC",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "moment": "^2.29.4",
+    "path": "^0.12.7",
+    "xlsx": "^0.18.5"
+  }
+}
