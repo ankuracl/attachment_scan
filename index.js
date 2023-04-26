@@ -38,7 +38,7 @@ async function processFiles() {
         else if(row["Transaction Type"] == "Expense"){
           // console.log(row);
           const expAmount = row["Credit"].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-          billFolderName = ['attachments/Expense/Expense \u20B9' + expAmount + '.00','attachments/Expense/Expense \u20B9' + expAmount + '.00-1'];
+          billFolderName = ['attachments/Expense/Expense \u20B9' + expAmount + '.00','attachments/Expense/Expense \u20B9' + expAmount + '.00-1','attachments/Expense/Expense '+ row["Name"] +' \u20B9' + expAmount + '.00','attachments/Expense/Expense '+ row["Name"] +' \u20B9' + expAmount + '.00-1'];
         }
         
         const folderName = await findExistingFolder(billFolderName);
