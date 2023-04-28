@@ -19,60 +19,116 @@ async function processFiles() {
       const worksheet = workbook.Sheets[sheetName];
       const options = {range:4,defval:''};
       const jsonData = XLSX.utils.sheet_to_json(worksheet,options);
-
+      
+      let i = 1,j = 1,k = 1 ,l = 1;
+      let billInitial = '',expInitial = '',depInitial = '',jeInitial = '';
       for (const row of jsonData) {
-        delete row["__EMPTY"];
         var billFolderName = [];
+        
         if (row["Transaction Type"] == "Bill") {
           const billAmount = row["Credit"].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
           billFolderName = ['attachments/Bill/Bill ' + row["Name"] + ' \u20B9' + billAmount + '.00','attachments/Bill/Bill #' + row["No."] + ' ' + row["Name"] + ' \u20B9' + billAmount + '.00','attachments/Bill/Bill ' + row["No."] + ' ' + row["Name"] + ' ' + billAmount + '.00'];
-          // const attachmentPath = 'attachments/Bill/' + billFolderName ;
-
-          // console.log(billFolderName);
+          if(billInitial !== "Bill_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')){
+            i = 1;
+          }
+          row["__EMPTY"] = "Bill_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')+"_"+i;
+          i++;
+          billInitial = "Bill_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY');
         }
         else if(row["Transaction Type"] == "Deposit"){
-          // console.log(row);
           const depAmount = row["Debit"].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
           billFolderName = ['attachments/Deposit/Deposit \u20B9' + depAmount + '.00','attachments/Deposit/Deposit ' + row["Name"] + ' \u20B9' + depAmount + '.00'];
+          if(depInitial !== "Dep_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')){
+            j = 1;
+          }
+          row["__EMPTY"] = "Dep_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')+"_"+j;
+          j++;
+          depInitial = "Dep_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY');
         }
         else if(row["Transaction Type"] == "Expense"){
-          // console.log(row);
           const expAmount = row["Credit"].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
           billFolderName = ['attachments/Expense/Expense \u20B9' + expAmount + '.00','attachments/Expense/Expense \u20B9' + expAmount + '.00-1','attachments/Expense/Expense '+ row["Name"] +' \u20B9' + expAmount + '.00','attachments/Expense/Expense '+ row["Name"] +' \u20B9' + expAmount + '.00-1'];
+          if(expInitial !== "Exp_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')){
+            k = 1;
+          }
+          row["__EMPTY"] = "Exp_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')+"_"+k;
+          k++;
+          expInitial = "Exp_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY');
+        }
+        else if(row["Transaction Type"] == "Journal Entry"){
+          if(jeInitial !== "JE_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')){
+            l = 1;
+          }
+          row["__EMPTY"] = "JE_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY')+"_"+l;
+          l++;
+          jeInitial = "JE_"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY');
         }
         
         const folderName = await findExistingFolder(billFolderName);
-        // console.log(folderName);
         if (folderName) {
           let foundFilePath;
+          let destinationPath;
           if(row["Transaction Type"] == "Expense"){
             const fileWordCombo = "_"+row["Credit"]+"_"+moment(row["Date"],'DD/MM/YYYY').format('DDMM');
-            // console.log(row["Date"]+" converted date is "+moment(row["Date"],'DD/MM/YYYY').format('DDMM'));
-            // console.log(fileWordCombo);
             foundFilePath = await findFilePathByWordCombination(folderName,fileWordCombo);
-            // console.log(foundFilePath);
           }
           else{
             const attachFile = await fs.promises.readdir(folderName);
             foundFilePath = attachFile.length > 0 ? path.join(folderName, attachFile[0]) : "NA";
-            // row["URL"] = foundFilePath;
-            // console.log(foundFilePath);
           }
-          row["URL"] = foundFilePath;
+
+          if(foundFilePath !== "NA"){
+            const fileExt = path.extname(foundFilePath);
+            const destFolder= "processed_files/"+moment(row["Date"],'DD/MM/YYYY').format('MMM_YY');
+            
+            // Get the directory of the destination file
+            // const sourcePath = path.join(__dirname,foundFilePath);
+            destinationPath = path.join(destFolder,row["__EMPTY"]+fileExt);
+            const destFolderName = path.join(__dirname,destFolder);
+
+            // Check if the directory exists, and create it if it doesn't
+            if (!fs.existsSync(destFolder)) {
+              fs.mkdirSync(destFolder, { recursive: true });
+            }
+
+            // Copy the file to the destination
+            fs.copyFileSync(foundFilePath, destinationPath);
+            
+            row["URL"] = foundFilePath;
+            row["New URL"] = destinationPath;
+          }
+          else{
+            row["URL"] = "NA";
+            row["New URL"] = "NA";
+          }
         } else {
-          row["URL"] = "NA";
+          row["URL"] = "NA";          
+          row["New URL"] = "NA";          
         }
-        // writing condition for transaction type deposit
       }
 
+      const oldKey = "__EMPTY";
+      const newKey = "External Id";
+      const newArr = jsonData.map(obj => {
+        const newObj = {};
+        Object.keys(obj).forEach(key => {
+          if (key === oldKey) {
+            newObj[newKey] = obj[key];
+          } else {
+            newObj[key] = obj[key];
+          }
+        });
+        return newObj;
+      });
       // console.log(jsonData);
-      const headers = Object.keys(jsonData[0]);
 
-      const data = jsonData.map(row => {
+      const headers = Object.keys(newArr[0]);
+
+      const data = newArr.map(row => {
         return headers.map(header => row[header]);
       });
 
-      // const newSheet = XLSX.utils.json_to_sheet(jsonData);
+      // const newSheet = XLSX.utils.json_to_sheet(newArr);
       const newSheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
 
       const newWorkbook = XLSX.utils.book_new();
